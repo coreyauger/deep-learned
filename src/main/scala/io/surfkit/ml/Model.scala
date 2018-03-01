@@ -9,11 +9,11 @@ import java.nio.file.Path
 object Graph {
   import scala.collection.JavaConverters._
 
-  trait Stage{
+  trait Layer{
     def forward: INDArray
   }
 
-  trait Input extends Stage{
+  trait Input extends Layer{
   }
 
   case class CsvInput(dir: Path) extends Input{
@@ -31,7 +31,7 @@ object Graph {
     def apply(input: INDArray) = RawInput(input)
   }
 
-  case class DenseLayer(units: Int, outputs: Int)(A: Stage) extends Stage{
+  case class Dense(units: Int, outputs: Int)(A: Layer) extends Layer{
     var W = (0 until units).map { _ => Nd4j.rand(outputs, A.forward.getRow(0).length()) }
     var b = (0 until units).map { _ => Nd4j.zeros(outputs, 1) }
 
@@ -44,6 +44,17 @@ object Graph {
       Nd4j.vstack( W.zip(b).map{
         case xs =>  xs._1.mmul(A.forward).add(xs._2)
       }.asJavaCollection)
+    }
+  }
+
+
+  trait Activation extends Layer{
+  }
+
+  case class ReLu(opts: Option[Int] = None)(Z: Layer) extends Activation{
+    def forward = {
+      // TODO:
+      Nd4j.zeros(0, 1)
     }
   }
 }
