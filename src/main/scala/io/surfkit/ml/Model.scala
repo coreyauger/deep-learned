@@ -9,7 +9,9 @@ import java.nio.file.Path
 object Model {
   import scala.collection.JavaConverters._
 
-  trait Layer{
+  sealed trait Ml
+
+  trait Layer extends Ml{
     def forward: INDArray
   }
 
@@ -37,7 +39,7 @@ object Model {
     def apply(input: INDArray) = RawInput()(input)
   }
 
-  case class Dense(units: Int, outputs: Int)(A: Layer) extends Layer{
+  case class Dense(units: Int)(A: Layer) extends Layer{
     var W: INDArray = null
     var b: INDArray = null
 
@@ -49,29 +51,61 @@ object Model {
 
     def forward = {
       if(W == null){
-        W = Nd4j.rand(units, A.forward.getColumn(0).length())
-        b = Nd4j.zeros(units, 1)
+        W = Nd4j.rand( units, A.forward.getColumn(0).length() )
+        b = Nd4j.zeros( units, 1 )
       }
-      debug
-      W.mmul(A.forward).add(b)
+      println(s"A: ${A.forward}")
+      val Z = W.mmul(A.forward).addColumnVector(b)
+      println(s"Z: ${Z}")
+      Z
     }
   }
-
 
   case class ReLu(opts: Option[Int] = None)(Z: Layer) extends Activation{
-    def forward = {
-      // TODO:
-      Z.forward
+    def forward = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.RectifedLinear(Z.forward))
+  }
+
+  case class Sigmoid(opts: Option[Int] = None)(Z: Layer) extends Activation{
+    def forward = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Sigmoid(Z.forward))
+  }
+
+  case class Tanh(opts: Option[Int] = None)(Z: Layer) extends Activation{
+    def forward = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Tanh(Z.forward))
+  }
+
+  case class Identity(opts: Option[Int] = None)(Z: Layer) extends Activation{
+    def forward = Z.forward
+  }
+
+  trait LossFunction extends Ml{
+    def calculate(YHat: INDArray, Y: INDArray): INDArray
+  }
+
+  case object CrossEntropy extends LossFunction{
+    override def calculate(YHat: INDArray, Y: INDArray): INDArray = {
+      val m = Y.shape()(1)
+      println(s"m: ${m}")
+      //(-1 / m) * np.sum(np.multiply(Y, np.log(AL)) + np.multiply(1 - Y, np.log(1 - AL)))
+      val logYHat = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Log(YHat.dup))
+      val log1MinusYHat =  Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Log(YHat.dup.sub(1)))
+      Nd4j.sum(
+        Y.dup
+          .mmul(logYHat.transpose )
+          .add(
+            YHat.dup.sub(1).mmul(log1MinusYHat.transpose )
+          ), 1
+      ).mul( -1.0 / m.toDouble )
     }
   }
 
-
-  class Model(inputs: Seq[Input], output: Layer){
-    def train(batch: INDArray) = {
+  class Model(inputs: Seq[Input], output: Layer, loss: LossFunction = CrossEntropy){
+    def train(batch: INDArray, Y: INDArray) = {
       inputs.map(_(batch))
-      val out = output.forward
+      val YHat = output.forward
+      val l = loss.calculate(YHat, Y)
 
-      println(s"out: ${out}")
+      println(s"out: ${YHat}")
+      println(s"loss: ${l}")
     }
   }
 }
