@@ -4,7 +4,7 @@ import sbt._
 
 val publishVersion = "0.0.1-SNAPSHOT"
 
-name := """deeply-disturbed"""
+name := """deep-learned"""
 
 scalaVersion := "2.11.11"
 
@@ -20,7 +20,7 @@ resolvers in ThisBuild += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/
 
 resolvers in ThisBuild += "Apache Snapshots" at "https://repository.apache.org/snapshots/"
 
-lazy val `deeply-disturbed` =
+lazy val `deep-learnded` =
   (project in file("."))
     .settings(commonLibSettings:_*)
 
