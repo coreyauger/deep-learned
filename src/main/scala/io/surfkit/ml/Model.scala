@@ -6,14 +6,18 @@ import org.nd4j.linalg.api.ndarray.INDArray
 import org.nd4j.linalg.factory.Nd4j
 import java.nio.file.Path
 
-object Graph {
+object Model {
   import scala.collection.JavaConverters._
 
   trait Layer{
     def forward: INDArray
   }
 
+  trait Activation extends Layer{}
+
   trait Input extends Layer{
+    var input: INDArray = null
+    def apply(input: INDArray) = this.input = input
   }
 
   case class CsvInput(dir: Path) extends Input{
@@ -24,37 +28,50 @@ object Graph {
     }
   }
 
-  case class RawInput(forward: INDArray) extends Input
+  case class RawInput() extends Input{
+    override def forward: INDArray = input
+  }
 
   object Input{
     def apply(dir: Path) = CsvInput(dir)
-    def apply(input: INDArray) = RawInput(input)
+    def apply(input: INDArray) = RawInput()(input)
   }
 
   case class Dense(units: Int, outputs: Int)(A: Layer) extends Layer{
-    var W = (0 until units).map { _ => Nd4j.rand(outputs, A.forward.getRow(0).length()) }
-    var b = (0 until units).map { _ => Nd4j.zeros(outputs, 1) }
+    var W: INDArray = null
+    var b: INDArray = null
 
     def debug = {
-      println(s"W: ${W.head.shapeInfoToString()}")
-      println(s"b: ${b.head.shapeInfoToString()}")
+      println(s"A: ${A.forward.shapeInfoToString()}")
+      println(s"W: ${W.shapeInfoToString()}")
+      println(s"b: ${b.shapeInfoToString()}")
     }
 
     def forward = {
-      Nd4j.vstack( W.zip(b).map{
-        case xs =>  xs._1.mmul(A.forward).add(xs._2)
-      }.asJavaCollection)
+      if(W == null){
+        W = Nd4j.rand(units, A.forward.getColumn(0).length())
+        b = Nd4j.zeros(units, 1)
+      }
+      debug
+      W.mmul(A.forward).add(b)
     }
   }
 
-
-  trait Activation extends Layer{
-  }
 
   case class ReLu(opts: Option[Int] = None)(Z: Layer) extends Activation{
     def forward = {
       // TODO:
-      Nd4j.zeros(0, 1)
+      Z.forward
+    }
+  }
+
+
+  class Model(inputs: Seq[Input], output: Layer){
+    def train(batch: INDArray) = {
+      inputs.map(_(batch))
+      val out = output.forward
+
+      println(s"out: ${out}")
     }
   }
 }

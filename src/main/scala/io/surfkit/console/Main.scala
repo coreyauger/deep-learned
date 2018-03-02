@@ -19,6 +19,7 @@ object Main extends App {
       cmd.mode match {
         case CommandParser.Mode.train =>
           val model = cmd.model.toLowerCase
+          Regression.test
 
         case x => println(s"Unknown command '${x}'.")
       }
