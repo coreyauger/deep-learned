@@ -26,8 +26,8 @@ object Regression {
 
   def test = {
     val input = RawInput()
-    val dense = Dense(units=128)(input)
-    val activation = ReLu(None)(dense)
+    val dense = Dense(units=1)(input)
+    val activation = Tanh(None)(dense)
     val output = Dense(units=1)(activation)
     val out = Identity(None)(output)
 
@@ -44,4 +44,21 @@ object Regression {
     println("----- Example Complete -----")
   }
 
+
+
+  def buildXorNetwork = {
+    val input = RawInput()
+    val dense = Dense(units=1, Some("dense1"))(input)
+    val activation = Sigmoid(Some("sig"))(dense)
+
+    val model = new Model(inputs=Seq(input), output = activation)
+
+    val X = Nd4j.vstack( Nd4j.create( Array(1.0, 1.0)), Nd4j.create( Array(0.0, 0.0)), Nd4j.create( Array(0.0, 1.0)), Nd4j.create( Array(1.0, 0.0)) )
+    val Y = Nd4j.create( Array(0.0, 0.0, 1.0, 1.0))
+    println(X.shapeInfoToString())
+
+    model.train( X, Y )
+
+    println("----- Example Complete -----")
+  }
 }

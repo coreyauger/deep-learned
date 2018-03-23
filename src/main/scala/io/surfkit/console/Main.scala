@@ -9,8 +9,9 @@ import scala.collection.Iterator
 object Main extends App {
 
   println("CONSOLE rarg !!!")
+  Regression.buildXorNetwork
 
-  @inline def defined(line: String) = {
+  /*@inline def defined(line: String) = {
     line != null && line.nonEmpty
   }
   Iterator.continually(scala.io.StdIn.readLine).takeWhile(defined(_)).foreach{line =>
@@ -19,12 +20,12 @@ object Main extends App {
       cmd.mode match {
         case CommandParser.Mode.train =>
           val model = cmd.model.toLowerCase
-          Regression.test
+          Regression.buildXorNetwork
 
         case x => println(s"Unknown command '${x}'.")
       }
     }
-  }
+  }*/
 
 }
 
