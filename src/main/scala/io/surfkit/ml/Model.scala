@@ -62,12 +62,13 @@ object Model {
     def forward = {
       A = Alayer.forward
       if(W == null){
-        W = Nd4j.rand( units, A.getColumn(0).length() )
+        W = Nd4j.rand( units, A.shape()(1) )
         b = Nd4j.zeros( units, 1 )
       }
+      debug
       println(s"DENSE[${name.getOrElse("")}]")
       println(s"A: ${A}")
-      Z = W.mmul(A).addColumnVector(b)
+      Z = W.mmul(A.transpose()).addColumnVector(b)
       println(s"Z: ${Z}")
       Z
     }
@@ -111,7 +112,9 @@ object Model {
     var Z: INDArray = null
     def forward = {
       Z = Zlayer.forward
-      Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Sigmoid(Z))
+      val A = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Sigmoid(Z))
+      println(s"Sigmoid[${name.getOrElse("")}] activation: ${A}")
+      A
     }
     //np.cosh(z/2)**(-2) / 4
     def derivitave = {
@@ -126,7 +129,6 @@ object Model {
       Zlayer.back(EoDSig)
     }
   }
-
 
   case class Tanh(name: Option[String] = None)(Zlayer: Layer) extends Activation{
     //var A: INDArray = null
@@ -155,7 +157,6 @@ object Model {
     }
   }
 
-
   case class Identity(name: Option[String] = None)(Zlayer: Layer) extends Activation{
     var Z: INDArray = null
     def forward = {
@@ -166,6 +167,8 @@ object Model {
     override def derivitave: INDArray = Z
     def back(Aprev: INDArray) = Zlayer.back(Aprev)
   }
+
+
 
   trait LossFunction extends Ml{
     def calculate(YHat: INDArray, Y: INDArray): INDArray
@@ -201,11 +204,13 @@ object Model {
       inputs.map(_(batch))
       val YHat = output.forward
       val l = loss.calculate(YHat, Y)
-      output.back(l)
-
       println(s"Y: ${Y}")
       println(s"out: ${YHat}")
       println(s"loss: ${l}")
+      
+      output.back(l)
+
+
     }
   }
 }
