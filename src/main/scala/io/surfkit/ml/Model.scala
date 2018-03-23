@@ -171,11 +171,11 @@ object Model {
 
 
   trait LossFunction extends Ml{
-    def calculate(YHat: INDArray, Y: INDArray): INDArray
+    def apply(YHat: INDArray, Y: INDArray): INDArray
   }
 
   case object SquaredError extends LossFunction {
-    override def calculate(YHat: INDArray, Y: INDArray): INDArray = {
+    override def apply(YHat: INDArray, Y: INDArray): INDArray = {
       val diff = Nd4j.norm1( YHat.subi(Y) )
       val diff2 = diff.mmul(diff)
       diff2.div(YHat.shape()(0))
@@ -183,7 +183,7 @@ object Model {
   }
 
   case object CrossEntropy extends LossFunction{
-    override def calculate(YHat: INDArray, Y: INDArray): INDArray = {
+    override def apply(YHat: INDArray, Y: INDArray): INDArray = {
       val m = Y.shape()(1)
       println(s"m: ${m}")
       //(-1 / m) * np.sum(np.multiply(Y, np.log(AL)) + np.multiply(1 - Y, np.log(1 - AL)))
@@ -203,11 +203,11 @@ object Model {
     def train(batch: INDArray, Y: INDArray) = {
       inputs.map(_(batch))
       val YHat = output.forward
-      val l = loss.calculate(YHat, Y)
+      val l = loss(YHat, Y)
       println(s"Y: ${Y}")
       println(s"out: ${YHat}")
       println(s"loss: ${l}")
-      
+
       output.back(l)
 
 
