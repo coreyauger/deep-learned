@@ -13,7 +13,7 @@ import org.nd4j.linalg.factory.Nd4j
   */
 object Regression {
 
-  def train(dir: File) = {
+  /*def train(dir: File) = {
 
     val features = Input(Paths.get(dir.getAbsolutePath))
 
@@ -21,10 +21,10 @@ object Regression {
 
 
     println("----- Example Complete -----")
-  }
+  }*/
 
 
-  def test = {
+  /*def test = {
     val input = RawInput()
     val dense = Dense(units=1)(input)
     val activation = Tanh(None)(dense)
@@ -42,19 +42,19 @@ object Regression {
 
 
     println("----- Example Complete -----")
-  }
+  }*/
 
 
 
   def buildXorNetwork = {
     val input = RawInput()
-    val dense = Dense(units=1, Some("dense1"))(input)
-    val activation = Sigmoid(Some("sig"))(dense)
+    val dense = Dense(units=2, activation=Sigmoid(Some("sig")), Some("dense1"))(input)
+    val out = Dense(units=1, activation=Sigmoid(Some("sig")), Some("out"))(dense)
 
-    val model = new Model(inputs=Seq(input), output = activation)
+    val model = new Model(inputs=Seq(input), output = out)
 
     val X = Nd4j.vstack( Nd4j.create( Array(1.0, 1.0)), Nd4j.create( Array(0.0, 0.0)), Nd4j.create( Array(0.0, 1.0)), Nd4j.create( Array(1.0, 0.0)) )
-    val Y = Nd4j.create( Array(0.0, 0.0, 1.0, 1.0))
+    val Y = Nd4j.create( Array(0.0, 0.0, 1.0, 1.0), Array(4,1))
     println(X.shapeInfoToString())
 
     model.train( X, Y )

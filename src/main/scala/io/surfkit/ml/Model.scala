@@ -17,8 +17,9 @@ object Model {
     def back(Aprev: INDArray): INDArray
   }
 
-  trait Activation extends Layer{
-    def derivitave: INDArray
+  trait Activation extends Ml{
+    def derivative(Z: INDArray): INDArray
+    def apply(Z: INDArray): INDArray
   }
 
   trait Input extends Layer{
@@ -46,7 +47,7 @@ object Model {
     def apply(input: INDArray) = RawInput()(input)
   }
 
-  case class Dense(units: Int, name: Option[String] = None)(Alayer: Layer) extends Layer{
+  case class Dense(units: Int, activation: Activation, name: Option[String] = None)(Alayer: Layer) extends Layer{
     var W: INDArray = null
     var b: INDArray = null
     var A: INDArray = null
@@ -65,12 +66,12 @@ object Model {
         W = Nd4j.rand( units, A.shape()(1) )
         b = Nd4j.zeros( units, 1 )
       }
-      debug
       println(s"DENSE[${name.getOrElse("")}]")
-      println(s"A: ${A}")
+      println(s"A: ${A.shapeInfoToString()}")
+      println(s"W: ${W.shapeInfoToString()}")
       Z = W.mmul(A.transpose()).addColumnVector(b)
-      println(s"Z: ${Z}")
-      Z
+      println(s"Z: ${Z.shapeInfoToString()}")
+      activation(Z).transpose()
     }
 
     def back(Eo: INDArray) = {
@@ -79,15 +80,20 @@ object Model {
       println(s"Eo: ${Eo.shapeInfoToString()}")
       println(s"W: ${W.shapeInfoToString()}")
 
-      val Eh = Eo.transpose().mmul(W).transpose()
+      val Eh1 = Eo.mmul(W).transpose()
+      println(s"Eh1: ${Eh1}")
+      val Eh = Eh1.mmul(activation.derivative(Z).transpose())
       println(s"Eh: ${Eh}")
-      val dWo = Eh.mmul(A)
-      println(s"CWo: ${dWo}")
+      val dWo = Eh.transpose().mmul(A.transpose())
+      println(s"dWo: ${dWo}")
 
       // TODO: where to get the lr from ?
       val lr = 0.01
 
-      W = W.sub( dWo.mul(lr) )
+      val step = dWo.mul(lr)
+      println(s"step: ${step}")
+      W = W.sub( step )
+      println(s"W: ${W}")
 
       // calculate this JW and this Jb
       //J = J @ a2.T / x.size
@@ -97,75 +103,47 @@ object Model {
     }
   }
 
-  case class ReLu(name: Option[String] = None)(Zlayer: Layer) extends Activation{
-    var Z: INDArray = null
-    def forward = {
-      Z = Zlayer.forward
-      Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.RectifedLinear(Z))
-    }
-    def derivitave = ???
-    def back(Aprev: INDArray) = ???
+  case class ReLu(name: Option[String] = None) extends Activation{
+    def apply(Z: INDArray) = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.RectifedLinear(Z))
+    def derivative(Z: INDArray) = ???
   }
 
 
-  case class Sigmoid(name: Option[String] = None)(Zlayer: Layer) extends Activation{
-    var Z: INDArray = null
-    def forward = {
-      Z = Zlayer.forward
+  case class Sigmoid(name: Option[String] = None) extends Activation{
+    def apply(Z: INDArray) = {
       val A = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Sigmoid(Z))
       println(s"Sigmoid[${name.getOrElse("")}] activation: ${A}")
       A
     }
     //np.cosh(z/2)**(-2) / 4
-    def derivitave = {
+    def derivative(Z: INDArray) = {
       val cosh = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Cosh(Z.div(2.0)))
       val cosh2 = cosh.mul(cosh)
       cosh2.div(4)
     }
-    //Jacobian
-    def back(Eo: INDArray) = {
-      println(s"back for Sigmoid[${name.getOrElse("")}]")
-      val EoDSig = Eo.muli(derivitave)
-      Zlayer.back(EoDSig)
-    }
   }
 
-  case class Tanh(name: Option[String] = None)(Zlayer: Layer) extends Activation{
-    //var A: INDArray = null
-    var Z: INDArray = null
-
+  case class Tanh(name: Option[String] = None) extends Activation{
     // compute the activation..
-    def forward = {
-      Z = Zlayer.forward
+    def apply(Z: INDArray) = {
       val A = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Tanh(Z))
       println(s"Tanh[${name.getOrElse("")}] activation: ${A}")
       A
     }
     // der tanh: 1/np.cosh(z)**2
-    def derivitave = {
+    def derivative(Z: INDArray) = {
       val cosh = Nd4j.getExecutioner().execAndReturn(new org.nd4j.linalg.api.ops.impl.transforms.Cosh(Z))
       val cosh2 = cosh.mul(cosh)
       cosh2.rdiv(1.0)
     }
-    //Jacobian
-    def back(Aprev: INDArray) = {
-      println(s"back for Tanh[${name.getOrElse("")}]")
-      println(s"Aprev: ${Aprev.shapeInfoToString()}")
-      println(s"Z: ${Z.shapeInfoToString()}")
-      val J = Aprev.muli(derivitave)
-      Zlayer.back(J)
-    }
   }
 
-  case class Identity(name: Option[String] = None)(Zlayer: Layer) extends Activation{
-    var Z: INDArray = null
-    def forward = {
-      Z = Zlayer.forward
+  case class Identity(name: Option[String] = None) extends Activation{
+    def apply(Z: INDArray) = {
       println(s"Identity[${name.getOrElse("")}] activation: ${Z}")
       Z
     }
-    override def derivitave: INDArray = Z
-    def back(Aprev: INDArray) = Zlayer.back(Aprev)
+    def derivative(Z: INDArray): INDArray = Z
   }
 
 
@@ -176,7 +154,10 @@ object Model {
 
   case object SquaredError extends LossFunction {
     override def apply(YHat: INDArray, Y: INDArray): INDArray = {
-      val diff = Nd4j.norm1( YHat.subi(Y) )
+      println(s"YHat: ${YHat.shapeInfoToString()}")
+      println(s"Y: ${Y.shapeInfoToString()}")
+      val res = YHat.subi(Y)
+      val diff = Nd4j.norm1( res )
       val diff2 = diff.mmul(diff)
       diff2.div(YHat.shape()(0))
     }
@@ -208,9 +189,7 @@ object Model {
       println(s"out: ${YHat}")
       println(s"loss: ${l}")
 
-      output.back(l)
-
-
+      output.back(YHat)
     }
   }
 }
